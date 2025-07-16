@@ -44,9 +44,22 @@ benchmark_steps = 10
 for _ in range(warmup_steps):
     model(x)
 
+optimizer = AdamW(model.parameters())
+
 for _ in range(benchmark_steps):
     s = time.time()
     logits = model(x)
-    # torch.cuda.synchronize()
+    if args.device == "cuda":
+        torch.cuda.synchronize()
     e = time.time()
     print(f"Forward pass time: {e - s}")
+
+    optimizer.zero_grad()
+    loss = cross_entropy(logits, y)
+
+    s = time.time()
+    loss.backward()
+    if args.device == "cuda":
+        torch.cuda.synchronize()
+    e = time.time()
+    print(f"Backward pass time: {e - s}")
