@@ -6,6 +6,7 @@ from cs336_basics.data import get_batch
 from cs336_basics.nn_utils import cross_entropy
 from cs336_basics.optimizer import AdamW
 import argparse
+from annotated import annotated_scaled_dot_product_attention
 
 parser = argparse.ArgumentParser()
 
@@ -44,6 +45,8 @@ model = BasicsTransformerLM(
     **model_configs[args.model_config],
     rope_theta=args.rope_theta,
 ).to(args.device)
+
+model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
 
 data = np.random.randint(0, args.vocab_size, (1 << 12,))
 x, y = get_batch(data, args.batch_size,
