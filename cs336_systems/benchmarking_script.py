@@ -9,10 +9,8 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-batch_size = 4
-
 parser.add_argument("--vocab_size", type=int, default=10_000)
-parser.add_argument("--context_length", type=int, default=1024)
+parser.add_argument("--context_length", type=int, default=128)
 parser.add_argument("--d_model", type=int, default=768)
 parser.add_argument("--d_ff", type=int, default=3072)
 parser.add_argument("--num_layers", type=int, default=12)
@@ -36,7 +34,8 @@ model = BasicsTransformerLM(
 ).to(args.device)
 
 data = np.random.randint(0, args.vocab_size, (1 << 12,))
-x, y = get_batch(data, batch_size, args.context_length, device=args.device)
+x, y = get_batch(data, args.batch_size,
+                 args.context_length, device=args.device)
 
 warmup_steps = 5
 benchmark_steps = 10
@@ -45,21 +44,33 @@ for _ in range(warmup_steps):
     model(x)
 
 optimizer = AdamW(model.parameters())
+forward_times = []
+backward_times = []
 
 for _ in range(benchmark_steps):
-    s = time.time()
+    s = time.time_ns()
     logits = model(x)
     if args.device == "cuda":
         torch.cuda.synchronize()
-    e = time.time()
-    print(f"Forward pass time: {e - s}")
+    e = time.time_ns()
 
-    optimizer.zero_grad()
+    forward_times.append(e - s)
+
     loss = cross_entropy(logits, y)
 
-    s = time.time()
+    s = time.time_ns()
     loss.backward()
     if args.device == "cuda":
         torch.cuda.synchronize()
-    e = time.time()
-    print(f"Backward pass time: {e - s}")
+    e = time.time_ns()
+
+    backward_times.append(e - s)
+
+    optimizer.zero_grad()
+    optimizer.step()
+
+print(f"Forward pass mean time: {np.mean(forward_times) * 1e-6} ms")
+print(f"Forward pass std dev: {np.std(forward_times) * 1e-6} ms")
+
+print(f"Backward pass mean time: {np.mean(backward_times) * 1e-6} ms")
+print(f"Backward pass std dev: {np.std(backward_times) * 1e-6} ms")
