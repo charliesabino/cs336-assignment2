@@ -55,47 +55,60 @@ model = BasicsTransformerLM(
 model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
 
 data = np.random.randint(0, args.vocab_size, (1 << 12,))
-x, y = get_batch(data, args.batch_size,
-                 args.context_length, device=args.device)
 
-warmup_steps = 5
+warmup_steps = 2
 benchmark_steps = 10
+context_lengths = [128, 256, 512, 1024]
 
-for _ in range(warmup_steps):
-    model(x)
 
-optimizer = AdamW(model.parameters())
-forward_times = []
-backward_times = []
+for model_config in model_configs:
+    model = BasicsTransformerLM(
+        vocab_size=args.vocab_size,
+        context_length=args.context_length,
+        **model_configs[model_config],
+        rope_theta=args.rope_theta,
+    ).to(args.device)
+    optimizer = AdamW(model.parameters())
 
-for _ in range(benchmark_steps):
-    s = time.time_ns()
-    torch.cuda.nvtx.range_push("forward")
-    logits = model(x)
-    if args.device == "cuda":
-        torch.cuda.synchronize()
-    torch.cuda.nvtx.range_pop()
-    e = time.time_ns()
+    forward_times = []
+    backward_times = []
 
-    forward_times.append(e - s)
+    for context_length in context_lengths:
+        x, y = get_batch(data, args.batch_size,
+                        args.context_length, device=args.device)
 
-    loss = cross_entropy(logits, y)
+        torch.cuda.nvtx.range_push("warmup")
+        for _ in range(warmup_steps):
+            model(x)
+        torch.cuda.nvtx.range_pop()
 
-    s = time.time_ns()
-    torch.cuda.nvtx.range_push("backward")
-    loss.backward()
-    if args.device == "cuda":
-        torch.cuda.synchronize()
-    torch.cuda.nvtx.range_pop()
-    e = time.time_ns()
+        for _ in range(benchmark_steps):
+            s = time.time_ns()
+            torch.cuda.nvtx.range_push(f"Forward pass for model {model_config} and context length {context_length}")
+            logits = model(x)
+            torch.cuda.nvtx.range_pop()
+            if args.device == "cuda":
+                torch.cuda.synchronize()
+            e = time.time_ns()
 
-    backward_times.append(e - s)
+            forward_times.append(e - s)
 
-    optimizer.zero_grad()
-    optimizer.step()
+            loss = cross_entropy(logits, y)
 
-print(f"Forward pass mean time: {np.mean(forward_times) * 1e-6} ms")
-print(f"Forward pass std dev: {np.std(forward_times) * 1e-6} ms")
+            s = time.time_ns()
+            torch.cuda.nvtx.range_push(f"Backward pass for model {model_config} and context length {context_length}")
+            loss.backward()
+            torch.cuda.nvtx.range_pop()
+            if args.device == "cuda":
+                torch.cuda.synchronize()
+            e = time.time_ns()
 
-print(f"Backward pass mean time: {np.mean(backward_times) * 1e-6} ms")
-print(f"Backward pass std dev: {np.std(backward_times) * 1e-6} ms")
+            backward_times.append(e - s)
+
+            optimizer.zero_grad()
+            optimizer.step()
+
+        print(f"Python reported forward pass mean time for model {model_config} and context length {context_length}: {np.mean(forward_times) * 1e-6} ms")
+        print(f"Python reported forward pass std dev for model {model_config} and context length {context_length}: {np.std(forward_times) * 1e-6} ms")
+        print(f"Python reported backward pass mean time for model {model_config} and context length {context_length}: {np.mean(backward_times) * 1e-6} ms")
+        print(f"Python reported backward pass std dev for model {model_config} and context length {context_length}: {np.std(backward_times) * 1e-6} ms")
