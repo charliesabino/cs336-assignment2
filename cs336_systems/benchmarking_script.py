@@ -1,15 +1,15 @@
-from annotated import annotated_scaled_dot_product_attention
-import cs336_basics
-cs336_basics.model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
-
-import numpy as np
-import torch
-import time
-from cs336_basics.model import BasicsTransformerLM
-from cs336_basics.data import get_batch
-from cs336_basics.nn_utils import cross_entropy
-from cs336_basics.optimizer import AdamW
 import argparse
+from cs336_basics.optimizer import AdamW
+from cs336_basics.nn_utils import cross_entropy
+from cs336_basics.data import get_batch
+from cs336_basics.model import BasicsTransformerLM
+import time
+import torch
+import numpy as np
+from annotated import annotated_scaled_dot_product_attention
+from cs336_basics import model as cs336_model
+
+cs336_model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
 
 
 parser = argparse.ArgumentParser()
