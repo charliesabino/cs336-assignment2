@@ -3,6 +3,7 @@ from jaxtyping import Float, Bool
 import torch
 from torch import Tensor
 from einops import einsum
+import math
 from cs336_basics.nn_utils import softmax
 
 
