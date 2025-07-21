@@ -1,114 +1,114 @@
 import argparse
+import logging
+import time
+import torch
+import numpy as np
 from cs336_basics.optimizer import AdamW
 from cs336_basics.nn_utils import cross_entropy
 from cs336_basics.data import get_batch
 from cs336_basics.model import BasicsTransformerLM
-import time
-import torch
-import numpy as np
 from annotated import annotated_scaled_dot_product_attention
 from cs336_basics import model as cs336_model
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 cs336_model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
 
-
-parser = argparse.ArgumentParser()
-
+parser = argparse.ArgumentParser(description="Benchmark Transformer models with cleaner logging.")
 parser.add_argument("--vocab_size", type=int, default=10_000)
-parser.add_argument("--context_length", type=int, default=128)
 parser.add_argument("--batch_size", type=int, default=4)
 parser.add_argument("--rope_theta", type=int, default=10_000)
-parser.add_argument(
-    "--device", default="cuda" if torch.cuda.is_available() else "cpu")
-parser.add_argument("--model_config", type=str, default="small")
-
+parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
 args = parser.parse_args()
-
-
-class ModelConfig:
-    def __init__(self, vocab_size, context_length, d_model, d_ff, num_layers, num_heads, batch_size, rope_theta):
-        self.vocab_size = vocab_size
-        self.context_length = context_length
-        self.d_model = d_model
-        self.d_ff = d_ff
-        self.num_layers = num_layers
-        self.num_heads = num_heads
-        self.batch_size = batch_size
-        self.rope_theta = rope_theta
-
 
 model_configs = {
     "small": {"d_model": 768, "d_ff": 3072, "num_layers": 12, "num_heads": 12},
     "medium": {"d_model": 1024, "d_ff": 4096, "num_layers": 24, "num_heads": 16},
     "large": {"d_model": 1280, "d_ff": 5120, "num_layers": 36, "num_heads": 20},
-    "xl": {"d_model": 1600, "d_ff": 6400, "num_layers": 48, "num_heads": 25},
-    "2.7B": {"d_model": 2560, "d_ff": 10240, "num_layers": 32, "num_heads": 32},
 }
-
-model = BasicsTransformerLM(
-    vocab_size=args.vocab_size,
-    context_length=args.context_length,
-    **model_configs[args.model_config],
-    rope_theta=args.rope_theta,
-).to(args.device)
-
-model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
-
-data = np.random.randint(0, args.vocab_size, (1 << 12,))
 
 warmup_steps = 2
 benchmark_steps = 10
 context_lengths = [128, 256, 512, 1024]
+results = []
 
+logging.info(f"Starting benchmark on device: {args.device}")
+data = np.random.randint(0, args.vocab_size, (1 << 12,))
 
-for model_config in model_configs:
+for model_name, config_params in model_configs.items():
+    logging.info(f"--- Starting benchmark for model: '{model_name}' ---")
+    
+    max_context_length = max(context_lengths)
+    
     model = BasicsTransformerLM(
         vocab_size=args.vocab_size,
-        context_length=args.context_length,
-        **model_configs[model_config],
+        context_length=max_context_length,
         rope_theta=args.rope_theta,
+        **config_params,
     ).to(args.device)
+    
     optimizer = AdamW(model.parameters())
 
-    forward_times = []
-    backward_times = []
-
     for context_length in context_lengths:
-        x, y = get_batch(data, args.batch_size,
-                        args.context_length, device=args.device)
+        logging.info(f"Benchmarking with context length: {context_length}")
+        
+        forward_times = []
+        backward_times = []
+
+        x, y = get_batch(data, args.batch_size, context_length, device=args.device)
 
         torch.cuda.nvtx.range_push("warmup")
         for _ in range(warmup_steps):
-            model(x)
+            logits = model(x)
+            loss = cross_entropy(logits, y)
+            loss.backward()
+            optimizer.zero_grad()
         torch.cuda.nvtx.range_pop()
-
-        for _ in range(benchmark_steps):
-            s = time.time_ns()
-            torch.cuda.nvtx.range_push(f"Forward pass for model {model_config} and context length {context_length}")
+        
+        for i in range(benchmark_steps):
+            torch.cuda.synchronize()
+            s_fwd = time.time_ns()
+            torch.cuda.nvtx.range_push(f"Fwd-{model_name}-{context_length}-{i}")
             logits = model(x)
             torch.cuda.nvtx.range_pop()
-            if args.device == "cuda":
-                torch.cuda.synchronize()
-            e = time.time_ns()
-
-            forward_times.append(e - s)
+            torch.cuda.synchronize()
+            e_fwd = time.time_ns()
+            forward_times.append(e_fwd - s_fwd)
 
             loss = cross_entropy(logits, y)
 
-            s = time.time_ns()
-            torch.cuda.nvtx.range_push(f"Backward pass for model {model_config} and context length {context_length}")
+            torch.cuda.synchronize()
+            s_bwd = time.time_ns()
+            torch.cuda.nvtx.range_push(f"Bwd-{model_name}-{context_length}-{i}")
             loss.backward()
             torch.cuda.nvtx.range_pop()
-            if args.device == "cuda":
-                torch.cuda.synchronize()
-            e = time.time_ns()
-
-            backward_times.append(e - s)
+            torch.cuda.synchronize()
+            e_bwd = time.time_ns()
+            backward_times.append(e_bwd - s_bwd)
 
             optimizer.zero_grad()
             optimizer.step()
 
-        print(f"Python reported forward pass mean time for model {model_config} and context length {context_length}: {np.mean(forward_times) * 1e-6} ms")
-        print(f"Python reported forward pass std dev for model {model_config} and context length {context_length}: {np.std(forward_times) * 1e-6} ms")
-        print(f"Python reported backward pass mean time for model {model_config} and context length {context_length}: {np.mean(backward_times) * 1e-6} ms")
-        print(f"Python reported backward pass std dev for model {model_config} and context length {context_length}: {np.std(backward_times) * 1e-6} ms")
+        results.append({
+            "model": model_name,
+            "context_length": context_length,
+            "fwd_mean_ms": np.mean(forward_times) * 1e-6,
+            "fwd_std_ms": np.std(forward_times) * 1e-6,
+            "bwd_mean_ms": np.mean(backward_times) * 1e-6,
+            "bwd_std_ms": np.std(backward_times) * 1e-6,
+        })
+
+logging.info("Benchmark finished. Displaying summary table.")
+
+print("\n" + "="*80)
+print(f"{'Benchmark Summary':^80}")
+print("="*80)
+print(f"| {'Model':<10} | {'Context Length':<15} | {'Fwd Pass (ms)':<15} | {'Bwd Pass (ms)':<15} |")
+print(f"|{'-'*12}|{'-'*17}|{'-'*17}|{'-'*17}|")
+
+for res in results:
+    fwd_str = f"{res['fwd_mean_ms']:.2f} ± {res['fwd_std_ms']:.2f}"
+    bwd_str = f"{res['bwd_mean_ms']:.2f} ± {res['bwd_std_ms']:.2f}"
+    print(f"| {res['model']:<10} | {res['context_length']:<15} | {fwd_str:<15} | {bwd_str:<15} |")
+
+print("="*80)
