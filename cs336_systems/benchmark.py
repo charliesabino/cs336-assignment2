@@ -72,9 +72,9 @@ for _ in range(benchmark_steps):
     s = time.time_ns()
     torch.cuda.nvtx.range_push("forward")
     logits = model(x)
-    torch.cuda.nvtx.range_pop()
     if args.device == "cuda":
         torch.cuda.synchronize()
+    torch.cuda.nvtx.range_pop()
     e = time.time_ns()
 
     forward_times.append(e - s)
@@ -84,9 +84,9 @@ for _ in range(benchmark_steps):
     s = time.time_ns()
     torch.cuda.nvtx.range_push("backward")
     loss.backward()
-    torch.cuda.nvtx.range_pop()
     if args.device == "cuda":
         torch.cuda.synchronize()
+    torch.cuda.nvtx.range_pop()
     e = time.time_ns()
 
     backward_times.append(e - s)
