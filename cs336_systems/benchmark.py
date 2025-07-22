@@ -84,8 +84,9 @@ for model_name in args.models:
             torch.cuda.nvtx.range_push(f"Fwd-{model_name}-{context_length}-{i}")
             with context:
                 logits = model(x)
-            torch.cuda.nvtx.range_pop()
             torch.cuda.synchronize()
+            torch.cuda.nvtx.range_pop()
+            torch.cuda.memory._dump_snapshot(f"data/{model_name}-{context_length}-fwd-memory-snapshot.pickle")
             e_fwd = time.time_ns()
             forward_times.append(e_fwd - s_fwd)
 
@@ -96,15 +97,15 @@ for model_name in args.models:
             s_bwd = time.time_ns()
             torch.cuda.nvtx.range_push(f"Bwd-{model_name}-{context_length}-{i}")
             loss.backward()
-            torch.cuda.nvtx.range_pop()
             torch.cuda.synchronize()
+            torch.cuda.nvtx.range_pop()
             e_bwd = time.time_ns()
             backward_times.append(e_bwd - s_bwd)
 
             optimizer.zero_grad()
             optimizer.step()
 
-        torch.cuda.memory._dump_snapshot(f"data/{model_name}_{context_length}_memory_snapshot.pickle")
+        torch.cuda.memory._dump_snapshot(f"data/{model_name}-{context_length}-full-memory-snapshot.pickle")
         torch.cuda.memory._record_memory_history(enabled=None)
 
         results.append(
