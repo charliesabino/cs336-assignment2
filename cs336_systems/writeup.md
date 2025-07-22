@@ -76,3 +76,30 @@ compare to the difference in FLOPs?
 
 Despite requiring far fewer FLOPs, softmax takes roughly the same amount of time
 on average as computing the attention scores.
+
+benchmarking_mixed_precision:
+
+(a)
+FC1 weight dtype: torch.float32
+LayerNorm weight dtype: torch.float32
+LayerNorm bias dtype: torch.float32
+FC1 output dtype: torch.bfloat16
+LayerNorm output dtype: torch.float32
+Logits dtype: torch.bfloat16
+Loss dtype: torch.float32
+
+--- Gradient Datatypes ---
+fc1.weight: torch.float32
+ln.weight: torch.float32
+ln.bias: torch.float32
+fc2.weight: torch.float32
+
+(b) You should have seen that FP16 mixed precision autocasting treats the layer normalization layer
+differently than the feed-forward layers. What parts of layer normalization are sensitive to mixed
+precision? If we use BF16 instead of FP16, do we still need to treat layer normalization differently?
+Why or why not?
+
+Maybe the variance might underflow and we end up with div by 0?
+BF16 might fix this because it has higher dynamic range?
+
+(c) Modify your benchmarking script to optionally run the model using mixed precision with BF16. Time the forward and backward passes with and without mixed-precision for each language model size described in §1.1.2. Compare the results of using full vs. mixed precision, and comment on any trends as model size changes. You may find the nullcontext no-op context manager to be useful.
