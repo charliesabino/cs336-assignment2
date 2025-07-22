@@ -16,8 +16,7 @@ def accumulation_experiment():
         s1 += torch.tensor(0.01, dtype=torch.float32)
     print(f"Result: {s1.item():.10f}")
     print(f"Data type of sum: {s1.dtype}")
-    print(f"Difference from expected: {
-          abs(expected_result - s1.item()):.10f}\n")
+    print(f"Difference from expected: {abs(expected_result - s1.item()):.10f}\n")
 
     print("--- Test 2: Accumulator (float16) += Value (float16) ---")
     s2 = torch.tensor(0, dtype=torch.float16)
@@ -25,29 +24,24 @@ def accumulation_experiment():
         s2 += torch.tensor(0.01, dtype=torch.float16)
     print(f"Result: {s2.item():.10f}")
     print(f"Data type of sum: {s2.dtype}")
-    print(f"Difference from expected: {
-          abs(expected_result - s2.item()):.10f}\n")
+    print(f"Difference from expected: {abs(expected_result - s2.item()):.10f}\n")
 
-    print(
-        "--- Test 3: Accumulator (float32) += Value (float16) [Implicit Upcasting] ---")
+    print("--- Test 3: Accumulator (float32) += Value (float16) [Implicit Upcasting] ---")
     s3 = torch.tensor(0, dtype=torch.float32)
     for i in range(1000):
         s3 += torch.tensor(0.01, dtype=torch.float16)
     print(f"Result: {s3.item():.10f}")
     print(f"Data type of sum: {s3.dtype}")
-    print(f"Difference from expected: {
-          abs(expected_result - s3.item()):.10f}\n")
+    print(f"Difference from expected: {abs(expected_result - s3.item()):.10f}\n")
 
-    print(
-        "--- Test 4: Accumulator (float32) += Value (float16).type(float32) [Explicit Upcasting] ---")
+    print("--- Test 4: Accumulator (float32) += Value (float16).type(float32) [Explicit Upcasting] ---")
     s4 = torch.tensor(0, dtype=torch.float32)
     for i in range(1000):
         x = torch.tensor(0.01, dtype=torch.float16)
         s4 += x.type(torch.float32)
     print(f"Result: {s4.item():.10f}")
     print(f"Data type of sum: {s4.dtype}")
-    print(f"Difference from expected: {
-          abs(expected_result - s4.item()):.10f}\n")
+    print(f"Difference from expected: {abs(expected_result - s4.item()):.10f}\n")
 
 
 class ToyModel(nn.Module):
@@ -73,7 +67,7 @@ class ToyModel(nn.Module):
 
 def model_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
         loss_fn = nn.CrossEntropyLoss()
         model = ToyModel(10, 10).to(device)
@@ -83,17 +77,16 @@ def model_experiment():
         loss = loss_fn(logits, data)
         print(f"Loss dtype: {loss.dtype}")
         loss.backward()
-        
+
         print("\n--- Gradient Datatypes ---")
         for name, param in model.named_parameters():
             if param.grad is not None:
                 print(f"{name}: {param.grad.dtype}")
             else:
                 print(f"{name}: No gradient")
-        
+
         optim.step()
 
 
 if __name__ == "__main__":
     model_experiment()
-
