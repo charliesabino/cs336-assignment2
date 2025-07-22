@@ -40,7 +40,6 @@ def annotated_scaled_dot_product_attention(
         attention_scores = torch.where(mask, attention_scores, float("-inf"))
 
     with nvtx.range("computing softmax"):
-        # Softmax over the key dimension
         attention_weights = softmax(attention_scores, dim=-1)
 
     with nvtx.range("final matmul"):
