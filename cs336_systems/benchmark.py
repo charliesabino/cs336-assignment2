@@ -15,24 +15,28 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 cs336_model.scaled_dot_product_attention = annotated_scaled_dot_product_attention
 
+model_configs = {
+    "small": {"d_model": 768, "d_ff": 3072, "num_layers": 12, "num_heads": 12},
+    "medium": {"d_model": 1024, "d_ff": 4096, "num_layers": 24, "num_heads": 16},
+    "large": {"d_model": 1280, "d_ff": 5120, "num_layers": 36, "num_heads": 20},
+    "xl": {"d_model": 1600, "d_ff": 6400, "num_layers": 48, "num_heads": 25},
+    "2.7B": {"d_model": 2560, "d_ff": 10240, "num_layers": 32, "num_heads": 32},
+}
+
 parser = argparse.ArgumentParser(description="Benchmark Transformer models with cleaner logging.")
 parser.add_argument("--vocab_size", type=int, default=10_000)
 parser.add_argument("--batch_size", type=int, default=4)
 parser.add_argument("--rope_theta", type=int, default=10_000)
 parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
 parser.add_argument("--precision", default="default")
+parser.add_argument("--context_lengths", type=int, nargs="+", default=[128, 256, 512])
+parser.add_argument("--models", type=str, nargs="+", default=list(model_configs.keys()))
+
 args = parser.parse_args()
 
-model_configs = {
-    "small": {"d_model": 768, "d_ff": 3072, "num_layers": 12, "num_heads": 12},
-    "medium": {"d_model": 1024, "d_ff": 4096, "num_layers": 24, "num_heads": 16},
-    "large": {"d_model": 1280, "d_ff": 5120, "num_layers": 36, "num_heads": 20},
-    # "xl": {"d_model": 1600, "d_ff": 6400, "num_layers": 48, "num_heads": 25},
-    # "2.7B": {"d_model": 2560, "d_ff": 10240, "num_layers": 32, "num_heads": 32},
-}
 warmup_steps = 2
 benchmark_steps = 10
-context_lengths = [128, 256, 512, 1024]
+context_lengths = args.context_lengths
 results = []
 
 logging.info(f"Starting benchmark on device: {args.device}")
@@ -40,7 +44,8 @@ data = np.random.randint(0, args.vocab_size, (1 << 12,))
 
 context = torch.autocast(device_type="cuda", dtype=torch.bfloat16) if args.precision != "default" else nullcontext()
 
-for model_name, config_params in model_configs.items():
+for model_name in args.models:
+    config_params = model_configs[model_name]
     logging.info(f"--- Starting benchmark for model: '{model_name}' ---")
 
     max_context_length = max(context_lengths)
