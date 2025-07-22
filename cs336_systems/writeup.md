@@ -103,3 +103,25 @@ Maybe the variance might underflow and we end up with div by 0?
 BF16 might fix this because it has higher dynamic range?
 
 (c) Modify your benchmarking script to optionally run the model using mixed precision with BF16. Time the forward and backward passes with and without mixed-precision for each language model size described in §1.1.2. Compare the results of using full vs. mixed precision, and comment on any trends as model size changes.
+
+================================================================================
+                               Benchmark Summary
+================================================================================
+
+| Model      | Context Length  | Fwd Pass (ms)   | Bwd Pass (ms)   |
+|------------|-----------------|-----------------|-----------------|
+| small      | 128             | 22.11 ± 0.09    | 24.94 ± 0.16    |
+| small      | 256             | 22.12 ± 0.12    | 25.51 ± 0.13    |
+| small      | 512             | 23.25 ± 0.11    | 25.84 ± 0.13    |
+| small      | 1024            | 24.28 ± 0.22    | 46.08 ± 0.02    |
+| medium     | 128             | 45.25 ± 0.39    | 49.41 ± 0.40    |
+| medium     | 256             | 45.19 ± 0.19    | 50.24 ± 0.10    |
+| medium     | 512             | 45.74 ± 0.14    | 50.33 ± 0.07    |
+| medium     | 1024            | 59.72 ± 0.02    | 117.27 ± 0.09   |
+| large      | 128             | 68.26 ± 1.07    | 74.59 ± 0.40    |
+| large      | 256             | 68.47 ± 0.22    | 75.80 ± 0.51    |
+| large      | 512             | 69.77 ± 0.12    | 94.88 ± 0.16    |
+| large      | 1024            | 111.83 ± 0.05   | 221.46 ± 0.19   |
+================================================================================
+
+Gains appear more drastic the greater the model size.
