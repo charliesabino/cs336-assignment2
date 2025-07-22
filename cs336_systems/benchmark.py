@@ -24,6 +24,7 @@ model_configs = {
 }
 
 parser = argparse.ArgumentParser(description="Benchmark Transformer models with cleaner logging.")
+parser.add_argument("--benchmark_steps", type=int, default=10)
 parser.add_argument("--vocab_size", type=int, default=10_000)
 parser.add_argument("--batch_size", type=int, default=4)
 parser.add_argument("--rope_theta", type=int, default=10_000)
@@ -35,7 +36,6 @@ parser.add_argument("--models", type=str, nargs="+", default=list(model_configs.
 args = parser.parse_args()
 
 warmup_steps = 2
-benchmark_steps = 10
 context_lengths = args.context_lengths
 results = []
 
@@ -76,7 +76,8 @@ for model_name in args.models:
             optimizer.zero_grad()
         torch.cuda.nvtx.range_pop()
 
-        for i in range(benchmark_steps):
+        torch.cuda.memory._record_memory_history(max_entries=1000000)
+        for i in range(args.benchmark_steps):
             torch.cuda.synchronize()
             s_fwd = time.time_ns()
             torch.cuda.nvtx.range_push(f"Fwd-{model_name}-{context_length}-{i}")
