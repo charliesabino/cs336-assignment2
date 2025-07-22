@@ -72,10 +72,12 @@ class ToyModel(nn.Module):
 
 
 def model_experiment():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
         loss_fn = nn.CrossEntropyLoss()
-        model = ToyModel(10, 10)
-        data = torch.randn((10, 10))
+        model = ToyModel(10, 10).to(device)
+        data = torch.randn((10, 10)).to(device)
         logits = model(data)
         optim = torch.optim.Adam(model.parameters(), lr=0.001)
         loss = loss_fn(logits, data)
