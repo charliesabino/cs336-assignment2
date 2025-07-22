@@ -77,6 +77,7 @@ for model_name in args.models:
         torch.cuda.nvtx.range_pop()
 
         torch.cuda.memory._record_memory_history(max_entries=1000000)
+
         for i in range(args.benchmark_steps):
             torch.cuda.synchronize()
             s_fwd = time.time_ns()
@@ -102,6 +103,9 @@ for model_name in args.models:
 
             optimizer.zero_grad()
             optimizer.step()
+
+        torch.cuda.memory._dump_snapshot(f"{model_name}_{context_length}_memory_snapshot.pickle")
+        torch.cuda.memory._record_memory_history(enabled=None)
 
         results.append(
             {
