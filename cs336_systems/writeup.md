@@ -28,6 +28,8 @@ Backward pass std dev: 29.964810661511788 ms
 Our caches are warmed!
 
 nsys_profile:
+a) What is the total time spent on your forward pass? Does it match what we had measured before
+with the Python standard library?
 
 ================================================================================
 
@@ -50,3 +52,27 @@ nsys_profile:
 | large      | 512             | 129.17 ± 0.11   | 267.12 ± 0.84   |
 | large      | 1024            | 280.65 ± 0.11   | 571.43 ± 0.12   |
 ================================================================================
+
+(b) What CUDA kernel takes the most cumulative GPU time during the forward pass? How many
+times is this kernel invoked during a single forward pass of your model? Is it the same kernel
+that takes the most runtime when you do both forward and backward passes? (Hint: look at the
+“CUDA GPU Kernel Summary” under “Stats Systems View”, and filter using NVTX ranges to
+identify which parts of the model are responsible for which kernels.)
+
+sm80_xmma_gemm_f32f32_f32f32_f32_tn_n_tilesize128x128x8_stage3_warpsize2x2x1_ffma_aligna4_alignc4_execute_kernel__5x_cublas
+takes longest time in the forward pass (46.8%). It is invoked 145 times per pass.
+
+(c) Although the vast majority of FLOPs take place in matrix multiplications, you will notice that
+several other kernels still take a non-trivial amount of the overall runtime. What other kernels
+besides matrix multiplies do you see accounting for non-trivial CUDA runtime in the forward
+pass?
+
+void at::native::elementwise_kernel<(int)128, (int)2, void at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::binary_internal::DivFunctor<float>>>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)
+also takes a non trivial amount of time (4.1%).
+
+(e) Compare the runtime of the softmax operation versus the matrix multiplication operations within
+the self-attention layer of your model during a forward pass. How does the difference in runtimes
+compare to the difference in FLOPs?
+
+Despite requiring far fewer FLOPs, softmax takes roughly the same amount of time
+on average as computing the attention scores.
