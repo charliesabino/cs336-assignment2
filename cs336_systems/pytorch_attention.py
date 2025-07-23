@@ -23,7 +23,7 @@ for d_model in d_models:
                 torch.profiler.ProfilerActivity.CUDA,
             ],
             schedule=torch.profiler.schedule(wait=1, warmup=1, active=100),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler("./log/transformer"),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler("./log"),
             record_shapes=True,
             profile_memory=True,
             with_stack=True,
