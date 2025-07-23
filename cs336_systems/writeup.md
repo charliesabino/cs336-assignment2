@@ -152,4 +152,4 @@ hides the smallest allocations to the corresponding level (e.g., putting “Deta
 the 10% largest allocations). What is the size of the largest allocations shown? Looking through
 the stack trace, can you tell where those allocations come from?
 
-It seems to be 128 MiB.
+It seems to be 128 MiB. It appears to come from the softmax in scaled dot product attention.
