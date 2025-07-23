@@ -13,7 +13,8 @@ seq_lens = [256, 1024, 4096, 8192, 16384]
 for d_model in d_models:
     for seq_len in seq_lens:
         print(f"Profiling d_model={d_model}, seq_len={seq_len}")
-        Q, K, V = torch.randn((3, batch_size, seq_len, d_model))
+        Q, K, V = torch.randn((3, batch_size, seq_len, d_model), requires_grad=True).cuda()
+
         with torch.profiler.profile(
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
@@ -28,5 +29,17 @@ for d_model in d_models:
             for i in range(102):
                 if i % 20 == 0:
                     print(f"  Progress: {i}/102")
-                logits = scaled_dot_product_attention(Q, K, V)
+
+                with record_function("forward"):
+                    logits = scaled_dot_product_attention(Q, K, V)
+
+                loss = logits.sum()
+
+                with record_function("backward"):
+                    loss.backward()
+
+                Q.grad = None
+                K.grad = None
+                V.grad = None
+
                 prof.step()
