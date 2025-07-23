@@ -13,7 +13,7 @@ seq_lens = [256, 1024, 4096, 8192, 16384]
 for d_model in d_models:
     for seq_len in seq_lens:
         print(f"Profiling d_model={d_model}, seq_len={seq_len}")
-        Q, K, V = torch.randn((3, batch_size, seq_len, seq_len))
+        Q, K, V = torch.randn((3, batch_size, seq_len, d_model))
         with torch.profiler.profile(
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
