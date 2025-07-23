@@ -1,6 +1,6 @@
 from cs336_basics.model import scaled_dot_product_attention
 import torch
-from torch.profile import record_function
+from torch.profiler import profile, record_function
 
 batch_size = 8
 d_models = [16, 32, 64, 128]
